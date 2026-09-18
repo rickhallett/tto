@@ -1,0 +1,59 @@
+# Turn Them Off — curated blocklist.
+#
+# Rules of the list:
+#   * Precision over reach. Block the exact LLM endpoint, never a whole
+#     provider: generativelanguage.googleapis.com, not *.googleapis.com.
+#     A person at bedtime must not lose Google Drive because we were lazy.
+#   * Kill only processes whose sole purpose is talking to a model. Editors
+#     (Cursor, VS Code, Zed) stay alive with their AI features dead behind
+#     the network block, because SIGKILLing an editor eats unsaved work.
+#   * Process names are exact basenames. No patterns, no "contains ai".
+#
+# This file ships inside the binary and is also fetched daily from
+# BLOCKLIST_URL so a one-off purchase keeps working when the next chatbot
+# launches. Same format, same rules.
+
+version = 1
+
+[categories.chat]
+title = "Chat apps and websites"
+blurb = "ChatGPT, Claude, Gemini, Copilot, Perplexity, Grok, Meta AI, character bots — the app and the website."
+domains = [
+    "chatgpt.com", "chat.openai.com", "auth.openai.com", "ab.chatgpt.com", "sora.chatgpt.com",
+    "claude.ai", "claude.com",
+    "gemini.google.com", "aistudio.google.com",
+    "copilot.microsoft.com", "m365.cloud.microsoft",
+    "perplexity.ai", "www.perplexity.ai",
+    "grok.com", "x.ai",
+    "meta.ai", "www.meta.ai",
+    "chat.mistral.ai", "chat.deepseek.com", "chat.qwen.ai", "kimi.com", "www.kimi.com",
+    "character.ai", "beta.character.ai", "replika.com", "my.replika.com", "talkie-ai.com",
+    "poe.com", "you.com", "pi.ai",
+    "notebooklm.google.com",
+]
+# Apps whose only job is chat. Matched on executable path (…/ChatGPT.app/…).
+apps = ["ChatGPT.app", "Claude.app", "Perplexity.app", "Grok.app", "Poe.app", "Copilot.app"]
+
+[categories.coding]
+title = "AI in my code editor and terminal"
+blurb = "Claude Code, Codex, Cursor, Copilot, Gemini CLI, aider, Windsurf. Your editor keeps working; the AI in it goes quiet."
+domains = [
+    "api.anthropic.com", "api.openai.com", "api.githubcopilot.com", "copilot-proxy.githubusercontent.com",
+    "api.individual.githubcopilot.com", "copilot-telemetry.githubusercontent.com",
+    "api2.cursor.sh", "api3.cursor.sh", "repo42.cursor.sh", "api4.cursor.sh",
+    "generativelanguage.googleapis.com", "cloudcode-pa.googleapis.com",
+    "api.mistral.ai", "codestral.mistral.ai", "api.deepseek.com", "api.x.ai", "api.groq.com",
+    "openrouter.ai", "api.cohere.com", "api.cohere.ai", "api.together.xyz", "api.fireworks.ai",
+    "server.codeium.com", "inference.codeium.com", "windsurf.com",
+    "api.tabnine.com", "api.supermaven.com", "api.zed.dev", "ai.zed.dev",
+    "api.replicate.com", "api.perplexity.ai",
+]
+# Standalone agents and CLIs: nothing to lose by killing them.
+processes = ["claude", "codex", "gemini", "aider", "goose", "opencode", "amp", "cline", "copilot"]
+
+[categories.local]
+title = "AI running on my Mac"
+blurb = "Ollama, LM Studio, llama.cpp, Jan, GPT4All. No network needed, so we stop the processes themselves."
+domains = []
+processes = ["ollama", "ollama-runner", "llama-server", "llama-cli", "llama.cpp", "mlx_lm.server", "lms", "vllm"]
+apps = ["Ollama.app", "LM Studio.app", "Jan.app", "GPT4All.app", "Msty.app", "Enchanted.app"]
