@@ -18,3 +18,7 @@ jobs:
       - name: End-to-end (unprivileged, TTO_PREFIX)
         run: sh tests/e2e.sh
       - run: cargo build --release
+      - name: Bundle builds
+        run: |
+          scripts/bundle-app.sh target/release/tto 0.0.0 dist
+          plutil -lint "dist/Turn Them Off.app/Contents/Info.plist"
