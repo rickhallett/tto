@@ -121,6 +121,22 @@ pub fn uninstall() -> Result<(), String> {
     let _ = Command::new("/bin/launchctl")
         .args(["bootout", &format!("system/{LABEL}")])
         .output();
+    // bootout's exit code is not a reliable signal (it errors when the
+    // service was not loaded), so verify the outcome directly: the socket
+    // must stop answering before we touch anything.
+    let mut stopped = false;
+    for _ in 0..50 {
+        if proto::call(&paths.socket(), &Request::Ping).is_err() {
+            stopped = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    if !stopped {
+        return Err(
+            "could not stop the helper; nothing changed. Try again, or see /var/log/tto.log".into(),
+        );
+    }
     if let Err(e) = crate::hosts::apply(&paths.hosts(), &[]) {
         let _ = Command::new("/bin/launchctl")
             .args(["bootstrap", "system"])
