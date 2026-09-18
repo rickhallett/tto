@@ -111,6 +111,26 @@ fn basename(p: &str) -> &str {
 }
 
 /// Does this process belong to the selected categories?
+/// Runtimes that execute a script named in argv[1]. Only for these do we
+/// look past the executable: `node .../claude` is Claude Code, but
+/// `vim claude` is someone editing a file called claude, and must live.
+const INTERPRETERS: &[&str] = &[
+    "node", "bun", "deno", "python", "python3", "ruby", "perl", "sh", "bash", "zsh",
+];
+
+/// The name this process answers to: its executable's basename, or, for an
+/// interpreter, the basename of the script it is running.
+pub fn effective_name(p: &Proc) -> &str {
+    let exe = basename(&p.path);
+    if INTERPRETERS.contains(&exe)
+        && let Some(script) = p.argv.get(1)
+    {
+        return basename(script);
+    }
+    exe
+}
+
+/// Does this process belong to the selected categories?
 pub fn matches(p: &Proc, cat: &Category) -> bool {
     if cat
         .apps
@@ -119,13 +139,8 @@ pub fn matches(p: &Proc, cat: &Category) -> bool {
     {
         return true;
     }
-    let names: Vec<&str> = std::iter::once(p.path.as_str())
-        .chain(p.argv.iter().map(String::as_str))
-        .map(basename)
-        .collect();
-    cat.processes
-        .iter()
-        .any(|want| names.iter().any(|n| n == want))
+    let name = effective_name(p);
+    cat.processes.iter().any(|want| want == name)
 }
 
 /// SIGKILL everything that matches. Returns what was killed.
@@ -194,6 +209,22 @@ mod tests {
             argv: vec!["node".into(), "server.js".into()],
         };
         assert!(!matches(&innocent, &cat()));
+        // The promise: nothing outside the list is ever signalled.
+        let editing = Proc {
+            pid: 7,
+            path: "/usr/bin/vim".into(),
+            argv: vec!["vim".into(), "claude".into()],
+        };
+        assert!(
+            !matches(&editing, &cat()),
+            "an editor opened on a file called claude must live"
+        );
+        let arg = Proc {
+            pid: 8,
+            path: "/usr/bin/grep".into(),
+            argv: vec!["grep".into(), "ollama".into()],
+        };
+        assert!(!matches(&arg, &cat()));
         let lookalike = Proc {
             pid: 6,
             path: "/usr/bin/claudette".into(),

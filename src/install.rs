@@ -91,15 +91,29 @@ pub fn install() -> Result<(), String> {
 pub fn uninstall() -> Result<(), String> {
     require_root()?;
     let paths = Paths::from_env();
-    if let Ok(resp) = proto::call(&paths.socket(), &Request::Status)
-        && resp.state.active()
-    {
-        {
-            return Err(format!(
-                "a block is active until {}. Uninstall is not a back door; try again then. (`tto recovery` if you truly must.)",
-                crate::when::describe(resp.state.until)
-            ));
-        }
+    // Fail closed: if we cannot prove there is no block, there is a block.
+    let active_until = match proto::call(&paths.socket(), &Request::Status) {
+        Ok(resp) => resp.state.active().then_some(resp.state.until),
+        Err(_) => match std::fs::read_to_string(paths.state()) {
+            Ok(text) => {
+                let on_disk: crate::state::State = serde_json::from_str(&text).map_err(|e| {
+                    format!("cannot read the helper's state ({e}); refusing to uninstall")
+                })?;
+                on_disk.active().then_some(on_disk.until)
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(e) => {
+                return Err(format!(
+                    "cannot read the helper's state ({e}); refusing to uninstall"
+                ));
+            }
+        },
+    };
+    if let Some(until) = active_until {
+        return Err(format!(
+            "a block is active until {}. Uninstall is not a back door; try again then. (`tto recovery` if you truly must.)",
+            crate::when::describe(until)
+        ));
     }
     let _ = Command::new("/bin/launchctl")
         .args(["bootout", &format!("system/{LABEL}")])

@@ -2,4 +2,6 @@
 /dist
 /site/node_modules
 /site/.vercel
+/.vercel
+.env*.local
 .DS_Store

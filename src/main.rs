@@ -93,14 +93,8 @@ fn main() -> ExitCode {
 
 fn off(paths: &Paths, when: &str, only: Vec<String>, yes: bool) -> Result<(), String> {
     let until = when::parse(when)?;
-    let list = blocklist::Blocklist::embedded();
-    let names = list.names();
-    if let Some(bad) = only
-        .iter()
-        .find(|o| *o != "everything" && !names.contains(&o.as_str()))
-    {
-        return Err(format!("no category called {bad:?}; see `tto list`"));
-    }
+    // Category names are checked by the daemon against its live list, which
+    // may be newer than the one compiled in here.
     let what = if only.iter().any(|o| o == "everything") {
         "everything".to_string()
     } else {
@@ -112,9 +106,12 @@ fn off(paths: &Paths, when: &str, only: Vec<String>, yes: bool) -> Result<(), St
             "This cannot be undone early. Not by you, not by restarting. Press Enter to continue, Ctrl-C to think about it."
         );
         let mut line = String::new();
-        std::io::stdin()
+        let bytes = std::io::stdin()
             .read_line(&mut line)
             .map_err(|e| e.to_string())?;
+        if bytes == 0 {
+            return Err("confirmation required; pass --yes to skip it".into());
+        }
     }
     let resp = proto::call(
         &paths.socket(),
@@ -149,7 +146,11 @@ fn status(paths: &Paths) -> Result<(), String> {
 
 fn list(full: bool) {
     let list = blocklist::Blocklist::embedded();
-    println!("blocklist v{}\n", list.version);
+    println!(
+        "blocklist v{} (compiled in; the helper may hold a newer one)",
+        list.version
+    );
+    println!("categories: {}\n", list.names().join(", "));
     for (name, cat) in &list.categories {
         println!("{name:<8} {}", cat.title);
         println!("         {}", cat.blurb);
