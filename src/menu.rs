@@ -112,9 +112,11 @@ define_class!(
         #[unsafe(method(install:))]
         fn install(&self, _sender: Option<&AnyObject>) {
             let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default();
+            // The bundle path has spaces ("Turn Them Off.app"), so let
+            // AppleScript quote it: `quoted form of` produces a safe sh word.
             let script = format!(
-                "do shell script \"{} install\" with administrator privileges with prompt \"Turn Them Off needs to install its helper. This happens once.\"",
-                exe.replace('"', "\\\"")
+                "do shell script (quoted form of \"{}\") & \" install\" with administrator privileges with prompt \"Turn Them Off needs to install its helper. This happens once.\"",
+                applescript_string(&exe)
             );
             let out = std::process::Command::new("/usr/bin/osascript").args(["-e", &script]).output();
             match out {
@@ -305,6 +307,11 @@ impl Controller {
     }
 }
 
+/// Escape for the inside of an AppleScript string literal.
+fn applescript_string(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 /// The stick man and his plug. Vector, template, crisp at any scale.
 fn menubar_icon() -> Option<Retained<NSImage>> {
     const SVG: &[u8] = include_bytes!("../assets/menubar.svg");
@@ -347,4 +354,20 @@ pub fn run(paths: Paths) {
         )
     };
     app.run();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn install_script_survives_spaces_and_quotes() {
+        let exe = r#"/Applications/Turn Them Off.app/Contents/MacOS/tto"#;
+        assert_eq!(
+            applescript_string(exe),
+            exe,
+            "spaces need no escaping inside the literal"
+        );
+        assert_eq!(applescript_string(r#"a"b\c"#), r#"a\"b\\c"#);
+    }
 }
