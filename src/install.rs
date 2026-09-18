@@ -126,7 +126,12 @@ pub fn uninstall() -> Result<(), String> {
     // must stop answering before we touch anything.
     let mut stopped = false;
     for _ in 0..50 {
-        if proto::call(&paths.socket(), &Request::Ping).is_err() {
+        // Only a vanished socket or a refused connection proves it is gone;
+        // a timeout or an error reply means something is still answering.
+        if matches!(
+            proto::call(&paths.socket(), &Request::Ping),
+            Err(proto::ClientError::NotInstalled)
+        ) {
             stopped = true;
             break;
         }
