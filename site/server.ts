@@ -18,6 +18,8 @@ const [indexHtml, llmsTxt, logoSvg] = await Promise.all([
   read("./logo.svg"),
 ]);
 
+const logoPng = await Bun.file(new URL("./logo.png", import.meta.url)).arrayBuffer();
+
 const env = (k: string) => (process.env[k] ?? "").trim();
 
 function render(): string {
@@ -121,6 +123,8 @@ Bun.serve({
         return new Response(llmsTxt, { headers: headers("text/plain; charset=utf-8", "public, max-age=3600") });
       case "/p.png":
         return new Response(PIXEL, { headers: headers("image/png", "public, max-age=86400") });
+      case "/logo.png":
+        return new Response(logoPng, { headers: headers("image/png", "public, max-age=86400") });
       case "/logo.svg":
         return new Response(logoSvg, { headers: headers("image/svg+xml", "public, max-age=86400") });
       case "/health":

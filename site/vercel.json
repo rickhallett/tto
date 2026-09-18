@@ -3,7 +3,7 @@
   "bunVersion": "1.x",
   "functions": {
     "server.ts": {
-      "includeFiles": "{index.html,llms.txt,logo.svg}"
+      "includeFiles": "{index.html,llms.txt,logo.svg,logo.png}"
     }
   }
 }

@@ -28,12 +28,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - name: Site logo is the repo logo
-        run: cmp assets/logo.svg site/logo.svg
+        run: cmp assets/logo.svg site/logo.svg && cmp assets/logo.png site/logo.png
       - name: Site serves every route
         working-directory: site
         run: |
           PORT=3999 bun run server.ts & sleep 2
-          for r in / /llms.txt /p.png /logo.svg /health; do
+          for r in / /llms.txt /p.png /logo.svg /logo.png /health; do
             code=$(curl -s -o /dev/null -w '%{http_code}' localhost:3999$r); echo "$r $code"; test "$code" = 200
           done
           curl -s localhost:3999/p.png | head -c 8 | od -c | grep -q "P   N   G"

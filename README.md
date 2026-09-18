@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo.svg" width="180" alt="A stick figure, eyes closed, holding an unplugged cable that hangs to the floor."></p>
+<p align="center"><img src="assets/logo.png" width="240" alt="A stick figure, eyes closed, holding an unplugged cable that hangs to the floor."></p>
 <h1 align="center">Turn Them Off</h1>
 <p align="center"><em>A hard, timed block on every LLM you can reach from your Mac. Get some rest.</em></p>
 <p align="center">
