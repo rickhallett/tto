@@ -20,7 +20,7 @@ function render(): string {
     buyId && pk
       ? `<script async src="https://js.stripe.com/v3/buy-button.js"></script>\n` +
         `<stripe-buy-button buy-button-id="${buyId}" publishable-key="${pk}"></stripe-buy-button>`
-      : `<a class="button" href="https://github.com/rickhallett/tto/releases/latest">Download the beta</a>`;
+      : `<a class="button" href="https://github.com/rickhallett/tto/releases">Download the beta</a>`;
 
   const ga = env("GA_MEASUREMENT_ID");
   const gtag = ga
