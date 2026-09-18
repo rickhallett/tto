@@ -348,6 +348,9 @@ fn off(d: &Daemon, until: u64, categories: Vec<String>) -> Response {
     // happen rather than print "Off." over a hosts file we could not write.
     match (persisted, enforced) {
         (Ok(()), Ok(())) => Response::ok(snapshot),
+        (Err(p), Err(e)) => Response::err(format!(
+            "{p}. {e}. Processes are stopped, but the network is not blocked, and the block will not survive a restart."
+        )),
         (Err(e), _) => Response::err(format!(
             "{e}. The block is on, but will not survive a restart."
         )),

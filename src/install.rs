@@ -115,12 +115,19 @@ pub fn uninstall() -> Result<(), String> {
             crate::when::describe(until)
         ));
     }
-    // Restore /etc/hosts before removing anything that could restore it.
-    crate::hosts::apply(&paths.hosts(), &[])
-        .map_err(|e| format!("restore hosts: {e}; nothing removed"))?;
+    // Stop the daemon first so no in-flight request can re-fence hosts
+    // behind our back; then restore; and if restoring fails, put the daemon
+    // back rather than leave a block with nothing to lift it.
     let _ = Command::new("/bin/launchctl")
         .args(["bootout", &format!("system/{LABEL}")])
         .output();
+    if let Err(e) = crate::hosts::apply(&paths.hosts(), &[]) {
+        let _ = Command::new("/bin/launchctl")
+            .args(["bootstrap", "system"])
+            .arg(paths.plist())
+            .output();
+        return Err(format!("restore hosts: {e}; helper left in place"));
+    }
     for p in [paths.plist(), paths.helper(), paths.socket()] {
         let _ = std::fs::remove_file(p);
     }

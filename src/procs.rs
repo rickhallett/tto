@@ -187,14 +187,23 @@ pub fn kill_matching(cat: &Category) -> Vec<Proc> {
         if p.pid == me || !matches(&p, cat) {
             continue;
         }
-        // The pid could have been recycled since we listed it. Only signal
-        // if it still names the same process.
-        if p.started.is_none() || start_time(p.pid) != p.started {
-            continue;
-        }
-        // SAFETY: plain kill(2) on a pid we just re-verified.
-        if unsafe { libc::kill(p.pid, libc::SIGKILL) } == 0 {
-            killed.push(p);
+        let Some(started) = p.started else { continue };
+        // A pid can be recycled between any two steps here, and macOS has
+        // no pid-bound handle. So: freeze whatever holds the pid, verify it
+        // is still our process (a stopped process cannot exit, so the pid
+        // cannot change under us), then kill; otherwise thaw and move on.
+        // SAFETY: plain kill(2) with signals that cannot corrupt state.
+        unsafe {
+            if libc::kill(p.pid, libc::SIGSTOP) != 0 {
+                continue;
+            }
+            if start_time(p.pid) == Some(started) {
+                if libc::kill(p.pid, libc::SIGKILL) == 0 {
+                    killed.push(p);
+                }
+            } else {
+                libc::kill(p.pid, libc::SIGCONT);
+            }
         }
     }
     killed
