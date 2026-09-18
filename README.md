@@ -67,7 +67,6 @@ design, the honest limits, and the recovery procedure:
 - [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md): what "hard" means on a Mac, and what it does not
 - [docs/BLOCKLIST-POLICY.md](docs/BLOCKLIST-POLICY.md): why we block `api2.cursor.sh` and never `cursor.sh`
 - [docs/RECOVERY.md](docs/RECOVERY.md): the ten-minute way out
-- [docs/PRICING.md](docs/PRICING.md): 99p once, and why not the App Store
 - [docs/RELEASING.md](docs/RELEASING.md)
 
 ## Building

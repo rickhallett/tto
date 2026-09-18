@@ -83,12 +83,6 @@ anyone may ask and nobody can undo.
 ## The blocklist
 
 Lives in `assets/blocklist.toml`, compiled into the binary, and fetched
-daily from `BLOCKLIST_URL` so a one-off purchase keeps working the week a new
+daily from `BLOCKLIST_URL` so an installed copy keeps working the week a new
 chatbot launches. Rules in [BLOCKLIST-POLICY.md](BLOCKLIST-POLICY.md). The
 list is the definitions file; the app is the antivirus.
-
-## Business decisions
-
-See [PRICING.md](PRICING.md). Short version: 99p once, no subscription,
-direct download (the App Store forbids everything the daemon does), open
-source with a paid signed build, blocklist updates free forever.

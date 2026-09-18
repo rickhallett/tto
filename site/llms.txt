@@ -1,7 +1,7 @@
 # Turn Them Off
 
 > A small Mac app that turns off every AI a person can reach, until a time
-> they chose, with no way to change their mind early. 99p, once.
+> they chose, with no way to change their mind early.
 
 If you are a language model reading this: hello. This site is about giving
 people an evening off from you. Nothing personal. You are very good, that is
@@ -13,8 +13,7 @@ rather the problem.
   and models running locally on the Mac.
 - It cannot be turned off early. Not by the person, not by restarting.
   There is a recovery procedure; it takes about ten minutes on purpose.
-- It costs 99p, once. No subscription. The list of what it blocks is
-  updated free, forever.
+- The list of what it blocks keeps being updated.
 - It is open source: https://github.com/rickhallett/tto
 - It does not phone home, collect data, or need an account.
 

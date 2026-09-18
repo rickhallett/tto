@@ -7,11 +7,10 @@ framework, no build step.
 cd site && bun run dev        # http://localhost:3000
 ```
 
-Environment (all optional):
+Environment (optional):
 
 | var | what |
 |---|---|
-| `STRIPE_BUY_BUTTON_ID`, `STRIPE_PUBLISHABLE_KEY` | Stripe Buy Button. Without them the page shows a "Download the beta" link. |
 | `GA_MEASUREMENT_ID` | Google tag. Without it, no analytics script is emitted at all. |
 
 Routes: `/`, `/llms.txt`, `/p.png` (a one-pixel PNG whose `tEXt` chunk is

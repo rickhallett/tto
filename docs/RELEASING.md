@@ -7,7 +7,9 @@
    `Turn-Them-Off-X.Y.Z-macos-universal.zip` (the app), writes `SHA256SUMS`,
    and publishes a GitHub release with generated notes.
 4. Until Developer ID signing lands, builds are ad-hoc signed. Users
-   right-click, Open once. This is a known gap; see PRICING.md.
+   right-click, Open once. The App Store is not an option (its sandbox
+   forbids the helper), so Developer ID signing and notarization are the
+   fix.
 5. Blocklist changes do not need a release: bump `version` in
    `assets/blocklist.toml`, merge to main, and every installed daemon picks
    it up within a day.

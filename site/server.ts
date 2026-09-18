@@ -1,7 +1,6 @@
 // Turn Them Off: the website. One HTML file, served by Bun, no framework.
 //
 // Env (all optional; the page degrades honestly without them):
-//   STRIPE_BUY_BUTTON_ID, STRIPE_PUBLISHABLE_KEY   Stripe Buy Button
 //   GA_MEASUREMENT_ID                              Google tag (G-XXXXXXXX)
 //
 // /p.png is a one-pixel PNG whose tEXt chunk carries llms.txt. For models
@@ -15,21 +14,13 @@ const logoPng = Buffer.from(assets.png, "base64");
 const env = (k: string) => (process.env[k] ?? "").trim();
 
 function render(): string {
-  const buyId = env("STRIPE_BUY_BUTTON_ID");
-  const pk = env("STRIPE_PUBLISHABLE_KEY");
-  const buy =
-    buyId && pk
-      ? `<script async src="https://js.stripe.com/v3/buy-button.js"></script>\n` +
-        `<stripe-buy-button buy-button-id="${buyId}" publishable-key="${pk}"></stripe-buy-button>`
-      : `<a class="button" href="https://github.com/rickhallett/tto/releases">Download the beta</a>`;
-
   const ga = env("GA_MEASUREMENT_ID");
   const gtag = ga
     ? `<script async src="https://www.googletagmanager.com/gtag/js?id=${ga}"></script>\n` +
       `<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','${ga}',{anonymize_ip:true});</script>`
     : "";
 
-  return indexHtml.replace("<!--BUY-->", buy).replace("<!--GTAG-->", gtag);
+  return indexHtml.replace("<!--GTAG-->", gtag);
 }
 
 // ---- a one-pixel PNG with a message in it --------------------------------
