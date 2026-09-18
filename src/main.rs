@@ -2,6 +2,7 @@ mod blocklist;
 mod daemon;
 mod hosts;
 mod install;
+mod menu;
 mod paths;
 mod procs;
 mod proto;
@@ -54,6 +55,8 @@ enum Command {
     Doctor,
     /// Print the recovery procedure. It is slow on purpose.
     Recovery,
+    /// Run as the menu bar app.
+    Menu,
     /// (internal) The root daemon; launchd runs this.
     #[command(hide = true)]
     Daemon,
@@ -63,7 +66,11 @@ enum Command {
 }
 
 fn main() -> ExitCode {
-    let cli = Cli::parse();
+    let cli = if launched_from_bundle() {
+        Cli::parse_from(["tto", "menu"])
+    } else {
+        Cli::parse()
+    };
     let paths = Paths::from_env();
     let result = match cli.command {
         Command::Off { when, only, yes } => off(&paths, &when, only, yes),
@@ -77,6 +84,10 @@ fn main() -> ExitCode {
         Command::Doctor => doctor(&paths),
         Command::Recovery => {
             print!("{}", include_str!("../docs/RECOVERY.md"));
+            Ok(())
+        }
+        Command::Menu => {
+            menu::run(paths);
             Ok(())
         }
         Command::Daemon => daemon::run(),
@@ -232,4 +243,11 @@ fn doctor(paths: &Paths) -> Result<(), String> {
     } else {
         Err(format!("{bad} problem(s)"))
     }
+}
+
+fn launched_from_bundle() -> bool {
+    std::env::args_os().len() == 1
+        && std::env::current_exe()
+            .map(|p| p.components().any(|c| c.as_os_str() == "MacOS"))
+            .unwrap_or(false)
 }
