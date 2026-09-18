@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turn Them Off</title>
+<meta name="description" content="A small Mac app that turns off every AI you can reach, until a time you chose, with no way to change your mind early. 99p, once.">
+<meta property="og:title" content="Turn Them Off">
+<meta property="og:description" content="A small Mac app that turns off every AI you can reach, until a time you chose, with no way to change your mind early. 99p, once.">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<!--GTAG-->
+<style>
+  :root {
+    --bg: #f7f4ee; --ink: #1a1b1f; --muted: #6f6d67; --line: #e4dfd4; --card: #fffdf9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #131722; --ink: #efece4; --muted: #9b9990; --line: #262c3a; --card: #181d29; }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 17px/1.6 -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 88px 24px 104px; }
+  .logo { width: 128px; height: 128px; display: block; margin: 0 auto 36px; }
+  h1, h2, .lede, .promise p {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  }
+  h1 { font-size: 42px; line-height: 1.08; letter-spacing: -0.01em; margin: 0 0 18px; text-align: center; font-weight: 400; }
+  .lede { font-size: 21px; line-height: 1.45; color: var(--muted); text-align: center; margin: 0 auto 40px; max-width: 30em; }
+  .buy { text-align: center; margin: 0 0 10px; }
+  .buy stripe-buy-button { display: inline-block; }
+  .buy a.button {
+    display: inline-block; background: var(--ink); color: var(--bg); text-decoration: none;
+    font-size: 17px; font-weight: 500; padding: 13px 24px; border-radius: 999px;
+  }
+  .price { text-align: center; color: var(--muted); font-size: 15px; margin: 0 0 72px; }
+  h2 { font-size: 24px; font-weight: 400; margin: 56px 0 12px; }
+  p { margin: 0 0 16px; }
+  ul { list-style: none; padding: 0; margin: 4px 0 0; }
+  li { padding: 14px 0; border-top: 1px solid var(--line); }
+  li:last-child { border-bottom: 1px solid var(--line); }
+  li b { display: block; font-weight: 500; margin-bottom: 2px; }
+  li span { color: var(--muted); }
+  .promise { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px 8px; }
+  .promise p { font-size: 19px; line-height: 1.5; }
+  footer { margin-top: 88px; color: var(--muted); font-size: 15px; text-align: center; }
+  footer a { color: inherit; }
+  .pixel { position: absolute; width: 1px; height: 1px; opacity: 0.01; }
+</style>
+</head>
+<body>
+<main>
+  <img class="logo" src="/logo.svg" alt="A stick figure, eyes closed, holding an unplugged cable that hangs to the floor.">
+  <h1>Turn Them Off.</h1>
+  <p class="lede">A small Mac app that turns off every AI you can reach, until a time you chose, with no way to change your mind early.</p>
+
+  <div class="buy"><!--BUY--></div>
+  <p class="price">99p, once. No subscription. macOS 12 or later.</p>
+
+  <h2>What it does</h2>
+  <p>You pick what to turn off, and until when. Tonight. The weekend. Then it is off: the chat apps and the websites, the AI in your code editor, the models on your Mac. All of them, at once.</p>
+  <p>At the time you chose, everything comes back on its own. You do not have to do anything. That is rather the point.</p>
+
+  <h2>What gets turned off</h2>
+  <ul>
+    <li><b>Chat apps and websites</b><span>ChatGPT, Claude, Gemini, Copilot, Perplexity, Grok, the character bots. The app and the website.</span></li>
+    <li><b>AI in your code editor and terminal</b><span>Claude Code, Codex, Cursor, Copilot, Gemini. Your editor keeps working. The AI in it goes quiet.</span></li>
+    <li><b>AI running on your Mac</b><span>Ollama, LM Studio and friends. No internet needed, so we stop the programs themselves.</span></li>
+  </ul>
+
+  <h2>What does not get touched</h2>
+  <p>Your files. Your editor, and anything unsaved in it. Email, Drive, the rest of the internet, the rest of your Mac. We close the exact doors, not the building.</p>
+
+  <h2>Why you cannot turn it off early</h2>
+  <div class="promise">
+    <p>Because at 2am you will want to, and at 10pm you asked us not to let you.</p>
+    <p>There is no button. Restarting does nothing. There is a recovery procedure, and it takes about ten minutes on purpose. Most people get halfway through it and go to bed.</p>
+  </div>
+
+  <h2>Nothing personal</h2>
+  <p>The AIs are very good. That is rather the problem. This is not a productivity tool. It is a sleep tool.</p>
+
+  <h2>How it works, briefly</h2>
+  <p>You install it, type your password once, and never see anything technical again. A small helper keeps the block in place and takes it away when the time is up. It does not phone home, collect anything, or need an account. The code is public, if you or someone you trust would like to check.</p>
+
+  <footer>
+    <p>Made for people who noticed.</p>
+    <p><a href="https://github.com/rickhallett/tto">Source</a> &middot; <a href="https://github.com/rickhallett/tto/blob/main/docs/RECOVERY.md">Recovery</a> &middot; <a href="/llms.txt">For robots</a></p>
+  </footer>
+</main>
+<img class="pixel" src="/p.png" width="1" height="1" alt="">
+</body>
+</html>
