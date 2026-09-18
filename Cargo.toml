@@ -1,0 +1,26 @@
+[package]
+name = "tto"
+version = "0.1.0"
+edition = "2024"
+description = "Turn Them Off: a hard, timed block on every LLM you can reach from your Mac. Get some rest."
+license = "MIT"
+repository = "https://github.com/rickhallett/tto"
+
+[dependencies]
+chrono = "0.4"
+clap = { version = "4.6", features = ["derive"] }
+libc = "0.2"
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std", "NSApplication", "NSResponder", "NSStatusBar", "NSStatusItem", "NSStatusBarButton",
+    "NSButton", "NSControl", "NSView", "NSCell", "NSMenu", "NSMenuItem", "NSImage", "NSAlert", "NSRunningApplication", "objc2-core-foundation",
+] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSString", "NSObject", "NSGeometry", "NSData", "NSTimer", "NSDate"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.9"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1

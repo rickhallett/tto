@@ -1,0 +1,5 @@
+/target
+/dist
+/site/node_modules
+/site/.vercel
+.DS_Store
