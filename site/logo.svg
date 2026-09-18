@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="70%">
+      <stop offset="0" stop-color="#2a3550"/>
+      <stop offset="1" stop-color="#121826"/>
+    </radialGradient>
+    <linearGradient id="plug" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f4f1ea"/>
+      <stop offset="1" stop-color="#c9c3b6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- night -->
+  <circle cx="160" cy="160" r="152" fill="url(#bg)" stroke="#39445e" stroke-width="4"/>
+  <!-- a few stars, because it's late -->
+  <g fill="#e9e4d6" opacity=".7">
+    <circle cx="70" cy="70" r="2"/><circle cx="250" cy="58" r="1.6"/><circle cx="228" cy="96" r="1.2"/>
+    <circle cx="96" cy="118" r="1.2"/><circle cx="272" cy="150" r="1.4"/><circle cx="52" cy="176" r="1.1"/>
+  </g>
+  <!-- moon -->
+  <circle cx="232" cy="78" r="18" fill="#f2e9c9"/>
+  <circle cx="240" cy="72" r="16" fill="#1a2233"/>
+
+  <!-- ground -->
+  <path d="M40 246 Q160 232 280 246" fill="none" stroke="#5a6684" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- stick man: tired, at peace -->
+  <g fill="none" stroke="#f4f1ea" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- head, tilted -->
+    <circle cx="146" cy="104" r="20" fill="#121826"/>
+    <!-- body -->
+    <path d="M150 124 L156 186"/>
+    <!-- legs -->
+    <path d="M156 186 L136 240"/>
+    <path d="M156 186 L182 240"/>
+    <!-- left arm, slack -->
+    <path d="M152 140 L118 176"/>
+    <!-- right arm holding the cable, hanging -->
+    <path d="M154 140 L196 160"/>
+  </g>
+  <!-- closed eyes, a small content mouth -->
+  <g fill="none" stroke="#f4f1ea" stroke-width="3" stroke-linecap="round">
+    <path d="M136 102 q4 3 8 0"/>
+    <path d="M150 102 q4 3 8 0"/>
+    <path d="M143 113 q4 3 8 0"/>
+  </g>
+
+  <!-- the cable: from the hand, drooping to the plug -->
+  <path d="M196 160 C214 176 214 206 200 224 C192 234 186 240 186 250" fill="none" stroke="#f4f1ea" stroke-width="5" stroke-linecap="round"/>
+  <!-- the plug, flaccid: pointing at the floor, prongs and all -->
+  <g transform="translate(186 250) rotate(12)">
+    <rect x="-12" y="0" width="24" height="18" rx="5" fill="url(#plug)" stroke="#121826" stroke-width="2.5"/>
+    <rect x="-8" y="18" width="4" height="11" rx="1.5" fill="#d9c79a" stroke="#121826" stroke-width="1.5"/>
+    <rect x="4" y="18" width="4" height="11" rx="1.5" fill="#d9c79a" stroke="#121826" stroke-width="1.5"/>
+  </g>
+
+  <!-- the socket, unbothered, over there -->
+  <g transform="translate(250 214)">
+    <rect x="-13" y="-13" width="26" height="26" rx="4" fill="#232c40" stroke="#5a6684" stroke-width="2.5"/>
+    <rect x="-6" y="-5" width="3.5" height="8" rx="1" fill="#5a6684"/>
+    <rect x="2.5" y="-5" width="3.5" height="8" rx="1" fill="#5a6684"/>
+  </g>
+</svg>

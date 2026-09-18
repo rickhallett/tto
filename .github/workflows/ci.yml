@@ -22,3 +22,18 @@ jobs:
         run: |
           scripts/bundle-app.sh target/release/tto 0.0.0 dist
           plutil -lint "dist/Turn Them Off.app/Contents/Info.plist"
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Site logo is the repo logo
+        run: cmp assets/logo.svg site/logo.svg
+      - name: Site serves every route
+        working-directory: site
+        run: |
+          PORT=3999 bun run server.ts & sleep 2
+          for r in / /llms.txt /p.png /logo.svg /health; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' localhost:3999$r); echo "$r $code"; test "$code" = 200
+          done
+          curl -s localhost:3999/p.png | head -c 8 | od -c | grep -q "P   N   G"
