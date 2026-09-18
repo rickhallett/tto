@@ -27,6 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - name: Site logo is the repo logo
+        run: cmp assets/logo.svg site/logo.svg
       - name: Site serves every route
         working-directory: site
         run: |

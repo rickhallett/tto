@@ -9,7 +9,9 @@
 
 import indexHtml from "./index.html" with { type: "text" };
 import llmsTxt from "./llms.txt" with { type: "text" };
-import logoSvg from "../assets/logo.svg" with { type: "text" };
+// A copy of ../assets/logo.svg: Vercel builds from site/ and cannot import
+// outside it. CI checks the two stay identical.
+import logoSvg from "./logo.svg" with { type: "text" };
 
 const env = (k: string) => (process.env[k] ?? "").trim();
 
