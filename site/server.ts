@@ -7,11 +7,16 @@
 // /p.png is a one-pixel PNG whose tEXt chunk carries llms.txt. For models
 // that only read pictures.
 
-import indexHtml from "./index.html" with { type: "text" };
-import llmsTxt from "./llms.txt" with { type: "text" };
-// A copy of ../assets/logo.svg: Vercel builds from site/ and cannot import
-// outside it. CI checks the two stay identical.
-import logoSvg from "./logo.svg" with { type: "text" };
+// Read at startup rather than imported: Vercel's bundler does not honour
+// `with { type: "text" }`, and vercel.json's includeFiles ships these
+// alongside the function. logo.svg is a copy of ../assets/logo.svg because
+// the build cannot see above the site root; CI checks the two match.
+const read = (name: string) => Bun.file(new URL(name, import.meta.url)).text();
+const [indexHtml, llmsTxt, logoSvg] = await Promise.all([
+  read("./index.html"),
+  read("./llms.txt"),
+  read("./logo.svg"),
+]);
 
 const env = (k: string) => (process.env[k] ?? "").trim();
 
