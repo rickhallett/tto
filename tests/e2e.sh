@@ -26,6 +26,14 @@ echo "== stop is not a thing"
 "$TTO" stop 2>&1 | grep -q "There is no stop"
 "$TTO" cancel 2>&1 | grep -q "There is no stop"
 
+echo "== oversized and unterminated requests are refused, daemon stays up"
+python3 - "$P/var/run/tto.sock" <<'PY'
+import socket,sys
+s=socket.socket(socket.AF_UNIX); s.connect(sys.argv[1]); s.sendall(b"x"*10000); s.settimeout(3)
+r=s.recv(4096); assert b"too long" in r, r
+PY
+"$TTO" status | grep -q "Everything is on"
+
 echo "== off 1m, local only"
 "$TTO" off 1m --only local -y | grep -q "Off. Back at"
 sleep 1.5

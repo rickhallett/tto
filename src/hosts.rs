@@ -13,18 +13,24 @@ const END: &str = "# <<< tto <<<";
 /// (or removed, if `domains` is empty). Pure; easy to test.
 pub fn render(current: &str, domains: &[String]) -> String {
     let mut out = String::with_capacity(current.len() + domains.len() * 48);
-    let mut skipping = false;
+    // Lines inside a BEGIN..END fence are dropped, but only once END is
+    // seen: an unmatched BEGIN (a truncated file, a stray paste) must not
+    // eat the rest of the hosts file.
+    let mut held: Option<Vec<&str>> = None;
     for line in current.lines() {
-        if line == BEGIN {
-            skipping = true;
-            continue;
+        match (&mut held, line) {
+            (None, l) if l == BEGIN => held = Some(vec![l]),
+            (None, l) => {
+                out.push_str(l);
+                out.push('\n');
+            }
+            (Some(_), l) if l == END => held = None,
+            (Some(buf), l) => buf.push(l),
         }
-        if line == END {
-            skipping = false;
-            continue;
-        }
-        if !skipping {
-            out.push_str(line);
+    }
+    if let Some(buf) = held {
+        for l in buf {
+            out.push_str(l);
             out.push('\n');
         }
     }
@@ -92,6 +98,17 @@ mod tests {
         );
         // Removing the section restores the original exactly.
         assert_eq!(render(&blocked, &[]), base);
+    }
+
+    #[test]
+    fn unmatched_begin_loses_nothing() {
+        let base = format!("127.0.0.1 localhost\n{BEGIN}\n0.0.0.0 x.com\n10.0.0.1 nas.local\n");
+        let out = render(&base, &[]);
+        assert!(out.contains("10.0.0.1 nas.local"), "{out}");
+        assert!(
+            out.contains("0.0.0.0 x.com"),
+            "we cannot tell what was ours; keep it"
+        );
     }
 
     #[test]

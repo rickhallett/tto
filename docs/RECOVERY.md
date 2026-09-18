@@ -14,7 +14,10 @@ step 4 most people find they no longer want step 6.
    "Loading startup options" appears, choose **Options**, then **Continue**.
 3. From the menu bar choose **Utilities → Terminal**.
 4. Find your data volume: `ls /Volumes`. It is usually `Macintosh HD` or
-   `Macintosh HD - Data`. Call it `$V` below.
+   `Macintosh HD - Data`. Tell the shell which one, exactly as listed:
+   ```
+   V='Macintosh HD - Data'
+   ```
 5. Remove the helper and its memory:
    ```
    rm "/Volumes/$V/Library/LaunchDaemons/dev.oceanheart.tto.plist"

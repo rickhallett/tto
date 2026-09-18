@@ -2,7 +2,7 @@
 //! answers the socket. It can make a block longer or wider. It cannot make
 //! one shorter; that code does not exist.
 
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::{Arc, Mutex};
@@ -55,7 +55,7 @@ pub fn run() -> Result<(), String> {
 
     {
         let d = Arc::clone(&d);
-        thread::spawn(move || enforce_forever(&d));
+        thread::spawn(move || enforce_forever(d));
     }
     serve(&d)
 }
@@ -112,15 +112,15 @@ fn refresh_blocklist(d: &Daemon) {
     }
 }
 
-fn enforce_forever(d: &Daemon) {
+fn enforce_forever(d: Arc<Daemon>) {
     let mut last_refresh = Instant::now() - BLOCKLIST_REFRESH;
     let mut was_active = false;
     loop {
         let state = d.state.lock().unwrap().clone();
         if state.active() {
             let cat = d.blocklist.lock().unwrap().select(&state.categories);
-            enforce(d, &cat);
-            heal_plist(d);
+            enforce(&d, &cat);
+            heal_plist(&d);
             if !was_active {
                 log(&format!(
                     "block on until {} ({})",
@@ -129,15 +129,16 @@ fn enforce_forever(d: &Daemon) {
                 ));
             }
             was_active = true;
-        } else {
-            if was_active || state != State::default() {
-                release(d);
-                was_active = false;
-            }
+        } else if was_active || state != State::default() {
+            // Stays true until the hosts file is actually clean, so a failed
+            // restore is retried every tick rather than forgotten.
+            was_active = !release(&d);
         }
         if last_refresh.elapsed() >= BLOCKLIST_REFRESH {
             last_refresh = Instant::now();
-            refresh_blocklist(d);
+            // Off the enforcement thread: a slow fetch must never pause the block.
+            let d = Arc::clone(&d);
+            thread::spawn(move || refresh_blocklist(&d));
         }
         thread::sleep(TICK);
     }
@@ -152,14 +153,23 @@ fn enforce(d: &Daemon, cat: &Category) {
     }
 }
 
-fn release(d: &Daemon) {
-    log("block over; restoring");
-    if let Err(e) = hosts::apply(&d.paths.hosts(), &[]) {
-        log(&format!("hosts: {e}"));
-    }
+/// Take the block down. Returns false if the hosts file could not be
+/// restored, in which case the state is kept so the next tick tries again.
+/// Holds the state lock throughout so an `off` that lands in the meantime
+/// cannot be wiped by a decision made on a stale snapshot.
+fn release(d: &Daemon) -> bool {
     let mut s = d.state.lock().unwrap();
+    if s.active() {
+        return true;
+    }
+    if let Err(e) = hosts::apply(&d.paths.hosts(), &[]) {
+        log(&format!("hosts restore failed, will retry: {e}"));
+        return false;
+    }
+    log("block over; hosts restored");
     *s = State::default();
     persist(d, &s);
+    true
 }
 
 /// If someone deletes our launchd plist while a block is on, put it back.
@@ -211,58 +221,98 @@ fn serve(d: &Arc<Daemon>) -> Result<(), String> {
     // Anyone may ask; nobody can undo. World-writable socket is fine.
     let _ = std::fs::set_permissions(&sock, std::fs::Permissions::from_mode(0o666));
     log(&format!("listening on {}", sock.display()));
+    // One request at a time, each bounded to MAX_REQUEST bytes and a short
+    // timeout: a misbehaving client can only make the next caller wait a
+    // second, never exhaust threads or memory.
     for conn in listener.incoming() {
         match conn {
-            Ok(stream) => {
-                let d = Arc::clone(d);
-                thread::spawn(move || handle(&d, stream));
-            }
+            Ok(stream) => handle(d, stream),
             Err(e) => log(&format!("accept: {e}")),
         }
     }
     Ok(())
 }
 
-fn handle(d: &Daemon, mut stream: UnixStream) {
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
-    let mut line = String::new();
-    if BufReader::new(&stream).read_line(&mut line).is_err() {
-        return;
+const MAX_REQUEST: u64 = 4096;
+
+/// Who may start a block: root, or whoever is sitting at the machine (the
+/// owner of /dev/console). Other local accounts may only ask for status.
+fn peer_may_block(stream: &UnixStream, paths: &Paths) -> bool {
+    use std::os::fd::AsRawFd;
+    use std::os::unix::fs::MetadataExt;
+    if paths.is_test() {
+        return true;
     }
-    let resp = match serde_json::from_str::<Request>(&line) {
-        Ok(Request::Ping) | Ok(Request::Status) => Response::ok(d.state.lock().unwrap().clone()),
-        Ok(Request::Off { until, categories }) => {
-            let known = d.blocklist.lock().unwrap();
-            let unknown: Vec<&String> = categories
-                .iter()
-                .filter(|c| *c != "everything" && !known.categories.contains_key(*c))
-                .collect();
-            if until <= crate::state::now() {
-                Response::err("that time is already past")
-            } else if until > crate::state::now() + 30 * 86400 {
-                Response::err("30 days is the longest block; you can add more later")
-            } else if !unknown.is_empty() {
-                Response::err(format!("unknown categories: {unknown:?}"))
-            } else if categories.is_empty() {
-                Response::err("nothing selected")
-            } else {
-                drop(known);
-                let mut s = d.state.lock().unwrap();
-                s.extend(until, &categories);
-                persist(d, &s);
-                // Apply immediately rather than waiting for the next tick.
-                let cat = d.blocklist.lock().unwrap().select(&s.categories);
-                let snapshot = s.clone();
-                drop(s);
-                enforce(d, &cat);
-                Response::ok(snapshot)
-            }
+    let (mut uid, mut gid) = (u32::MAX, u32::MAX);
+    // SAFETY: valid socket fd and out-pointers.
+    if unsafe { libc::getpeereid(stream.as_raw_fd(), &mut uid, &mut gid) } != 0 {
+        return false;
+    }
+    if uid == 0 {
+        return true;
+    }
+    std::fs::metadata("/dev/console")
+        .map(|m| m.uid() == uid)
+        .unwrap_or(false)
+}
+
+fn handle(d: &Daemon, mut stream: UnixStream) {
+    let _ = stream.set_read_timeout(Some(Duration::from_secs(1)));
+    let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+    let mut line = String::new();
+    {
+        let mut reader = BufReader::new(&stream).take(MAX_REQUEST);
+        if reader.read_line(&mut line).is_err() {
+            return;
         }
-        Err(e) => Response::err(format!("bad request: {e}")),
+    }
+    let resp = if !line.ends_with('\n') {
+        Response::err("request too long or unterminated")
+    } else {
+        match serde_json::from_str::<Request>(&line) {
+            Ok(Request::Ping) | Ok(Request::Status) => {
+                Response::ok(d.state.lock().unwrap().clone())
+            }
+            Ok(Request::Off { .. }) if !peer_may_block(&stream, &d.paths) => {
+                Response::err("only the person at this Mac (or root) can start a block")
+            }
+            Ok(Request::Off { until, categories }) => off(d, until, categories),
+            Err(e) => Response::err(format!("bad request: {e}")),
+        }
     };
     let mut out = serde_json::to_string(&resp).unwrap_or_default();
     out.push('\n');
     let _ = stream.write_all(out.as_bytes());
+}
+
+fn off(d: &Daemon, until: u64, categories: Vec<String>) -> Response {
+    let known = d.blocklist.lock().unwrap();
+    let unknown: Vec<&String> = categories
+        .iter()
+        .filter(|c| *c != "everything" && !known.categories.contains_key(*c))
+        .collect();
+    if until <= crate::state::now() {
+        return Response::err("that time is already past");
+    }
+    if until > crate::state::now() + 30 * 86400 {
+        return Response::err("30 days is the longest block; you can add more later");
+    }
+    if !unknown.is_empty() {
+        return Response::err(format!("unknown categories: {unknown:?}; try `tto list`"));
+    }
+    if categories.is_empty() {
+        return Response::err("nothing selected");
+    }
+    drop(known);
+    let mut s = d.state.lock().unwrap();
+    s.extend(until, &categories);
+    persist(d, &s);
+    // Apply immediately rather than waiting for the next tick.
+    let cat = d.blocklist.lock().unwrap().select(&s.categories);
+    let snapshot = s.clone();
+    drop(s);
+    enforce(d, &cat);
+    Response::ok(snapshot)
 }
 
 fn log(msg: &str) {
