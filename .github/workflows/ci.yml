@@ -27,6 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - name: Bundled site assets are current
+        run: bun site/build-assets.ts --check
       - name: Site logo is the repo logo
         run: cmp assets/logo.svg site/logo.svg && cmp assets/logo.png site/logo.png
       - name: Site serves every route
