@@ -14,10 +14,16 @@ cp "$P/etc/hosts" "$P/hosts.orig"
 mkdir -p "$P/bin"; cp /bin/sleep "$P/bin/ollama"
 "$P/bin/ollama" 600 & DECOY=$!
 
+# Wait until the daemon answers, not merely until a socket file exists: an
+# old socket file lingers until the new daemon rebinds it.
+wait_up() {
+  for _ in $(seq 100); do "$TTO" status >/dev/null 2>&1 && return 0; sleep 0.1; done
+  echo "daemon never answered"; cat "$P/daemon.log"; exit 1
+}
+
 "$TTO" daemon 2> "$P/daemon.log" & DAEMON=$!
 trap 'kill $DAEMON $DECOY 2>/dev/null; rm -rf "$P"' EXIT
-for _ in $(seq 50); do [ -S "$P/var/run/tto.sock" ] && break; sleep 0.1; done
-[ -S "$P/var/run/tto.sock" ] || { echo "daemon never listened"; cat "$P/daemon.log"; exit 1; }
+wait_up
 
 echo "== status before"
 "$TTO" status | grep -q "Everything is on"
@@ -68,7 +74,7 @@ UNTIL_AGAIN=$(python3 -c "import json;print(json.load(open('$P/var/db/tto/state.
 echo "== restart the daemon mid-block: still blocked"
 kill $DAEMON; wait $DAEMON 2>/dev/null || true
 "$TTO" daemon 2>> "$P/daemon.log" & DAEMON=$!
-for _ in $(seq 50); do [ -S "$P/var/run/tto.sock" ] && break; sleep 0.1; done
+wait_up
 "$TTO" status | grep -q "Off ("
 
 echo "== a stale fence survives a lost state file only until the daemon restarts"
