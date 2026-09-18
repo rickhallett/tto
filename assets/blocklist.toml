@@ -10,7 +10,7 @@
 #   * Process names are exact basenames. No patterns, no "contains ai".
 #
 # This file ships inside the binary and is also fetched daily from
-# BLOCKLIST_URL so a one-off purchase keeps working when the next chatbot
+# BLOCKLIST_URL so an installed copy keeps working when the next chatbot
 # launches. Same format, same rules.
 
 version = 1
