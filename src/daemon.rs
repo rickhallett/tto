@@ -114,12 +114,15 @@ fn refresh_blocklist(d: &Daemon) {
 
 fn enforce_forever(d: Arc<Daemon>) {
     let mut last_refresh = Instant::now() - BLOCKLIST_REFRESH;
-    let mut was_active = false;
+    // Start as if a block had just ended: the first inactive tick then
+    // restores /etc/hosts, so a fence left by a crash or a lost state file
+    // never outlives the daemon restart.
+    let mut was_active = true;
     loop {
         let state = d.state.lock().unwrap().clone();
         if state.active() {
             let cat = d.blocklist.lock().unwrap().select(&state.categories);
-            enforce(&d, &cat);
+            let _ = enforce(&d, &cat);
             heal_plist(&d);
             if !was_active {
                 log(&format!(
@@ -144,13 +147,18 @@ fn enforce_forever(d: Arc<Daemon>) {
     }
 }
 
-fn enforce(d: &Daemon, cat: &Category) {
-    if let Err(e) = hosts::apply(&d.paths.hosts(), &cat.domains) {
-        log(&format!("hosts: {e}"));
+/// Apply the block once. The hosts error is returned (and logged) so a
+/// caller answering a request can say so; the tick loop just logs it.
+fn enforce(d: &Daemon, cat: &Category) -> Result<(), String> {
+    let hosts = hosts::apply(&d.paths.hosts(), &cat.domains)
+        .map_err(|e| format!("could not write hosts file: {e}"));
+    if let Err(e) = &hosts {
+        log(e);
     }
     for p in procs::kill_matching(cat) {
         log(&format!("stopped {} (pid {})", p.path, p.pid));
     }
+    hosts.map(drop)
 }
 
 /// Take the block down. Returns false if the hosts file could not be
@@ -168,7 +176,7 @@ fn release(d: &Daemon) -> bool {
     }
     log("block over; hosts restored");
     *s = State::default();
-    persist(d, &s);
+    let _ = persist(d, &s);
     true
 }
 
@@ -183,18 +191,22 @@ fn heal_plist(d: &Daemon) {
     }
 }
 
-fn persist(d: &Daemon, s: &State) {
+fn persist(d: &Daemon, s: &State) -> Result<(), String> {
     let path = d.paths.state();
     if !d.paths.is_test() {
         set_immutable(&path, false);
     }
-    if let Err(e) = s.save(&path) {
-        log(&format!("state: {e}"));
+    let saved = s
+        .save(&path)
+        .map_err(|e| format!("could not save state: {e}"));
+    if let Err(e) = &saved {
+        log(e);
     }
     if !d.paths.is_test() {
         let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
         set_immutable(&path, s.active());
     }
+    saved
 }
 
 /// System-immutable flag. Root can clear it (securelevel 0), but only if
@@ -224,14 +236,34 @@ fn serve(d: &Arc<Daemon>) -> Result<(), String> {
     // One request at a time, each bounded to MAX_REQUEST bytes and a short
     // timeout: a misbehaving client can only make the next caller wait a
     // second, never exhaust threads or memory.
+    // A small bounded pool: each request is one short line with a 1 s
+    // timeout, so MAX_WORKERS stalled clients are needed to delay anyone,
+    // and even then only for a second. Beyond the cap, connections are
+    // dropped rather than queued, so memory and threads stay flat.
+    let busy = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     for conn in listener.incoming() {
         match conn {
-            Ok(stream) => handle(d, stream),
+            Ok(stream) => {
+                use std::sync::atomic::Ordering;
+                if busy.fetch_add(1, Ordering::SeqCst) >= MAX_WORKERS {
+                    busy.fetch_sub(1, Ordering::SeqCst);
+                    drop(stream);
+                    continue;
+                }
+                let d = Arc::clone(d);
+                let busy = Arc::clone(&busy);
+                thread::spawn(move || {
+                    handle(&d, stream);
+                    busy.fetch_sub(1, Ordering::SeqCst);
+                });
+            }
             Err(e) => log(&format!("accept: {e}")),
         }
     }
     Ok(())
 }
+
+const MAX_WORKERS: usize = 16;
 
 const MAX_REQUEST: u64 = 4096;
 
@@ -306,13 +338,23 @@ fn off(d: &Daemon, until: u64, categories: Vec<String>) -> Response {
     drop(known);
     let mut s = d.state.lock().unwrap();
     s.extend(until, &categories);
-    persist(d, &s);
+    let persisted = persist(d, &s);
     // Apply immediately rather than waiting for the next tick.
     let cat = d.blocklist.lock().unwrap().select(&s.categories);
     let snapshot = s.clone();
     drop(s);
-    enforce(d, &cat);
-    Response::ok(snapshot)
+    let enforced = enforce(d, &cat);
+    // The block is on in memory either way; but say plainly what did not
+    // happen rather than print "Off." over a hosts file we could not write.
+    match (persisted, enforced) {
+        (Ok(()), Ok(())) => Response::ok(snapshot),
+        (Err(e), _) => Response::err(format!(
+            "{e}. The block is on, but will not survive a restart."
+        )),
+        (_, Err(e)) => Response::err(format!(
+            "{e}. Processes are stopped, but the network is not blocked."
+        )),
+    }
 }
 
 fn log(msg: &str) {

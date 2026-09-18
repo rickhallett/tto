@@ -115,10 +115,12 @@ pub fn uninstall() -> Result<(), String> {
             crate::when::describe(until)
         ));
     }
+    // Restore /etc/hosts before removing anything that could restore it.
+    crate::hosts::apply(&paths.hosts(), &[])
+        .map_err(|e| format!("restore hosts: {e}; nothing removed"))?;
     let _ = Command::new("/bin/launchctl")
         .args(["bootout", &format!("system/{LABEL}")])
         .output();
-    let _ = crate::hosts::apply(&paths.hosts(), &[]);
     for p in [paths.plist(), paths.helper(), paths.socket()] {
         let _ = std::fs::remove_file(p);
     }

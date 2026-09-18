@@ -63,16 +63,22 @@ fn duration(s: &str) -> Result<Duration, String> {
         }
         let n: i64 = num.parse().map_err(|_| format!("can't read {s:?}"))?;
         num.clear();
-        total += match c {
-            'm' => Duration::minutes(n),
-            'h' => Duration::hours(n),
-            'd' => Duration::days(n),
+        let part = match c {
+            'm' => Duration::try_minutes(n),
+            'h' => Duration::try_hours(n),
+            'd' => Duration::try_days(n),
             _ => return Err(format!("unknown unit {c:?} in {s:?}")),
         };
+        total = part
+            .and_then(|p| total.checked_add(&p))
+            .ok_or_else(|| format!("{s:?} is longer than time itself; 30 days is the most"))?;
         any = true;
     }
     if !num.is_empty() {
-        total += Duration::minutes(num.parse().map_err(|_| format!("can't read {s:?}"))?);
+        let n: i64 = num.parse().map_err(|_| format!("can't read {s:?}"))?;
+        total = Duration::try_minutes(n)
+            .and_then(|p| total.checked_add(&p))
+            .ok_or_else(|| format!("{s:?} is longer than time itself; 30 days is the most"))?;
         any = true;
     }
     if !any || total <= Duration::zero() {
@@ -116,6 +122,9 @@ mod tests {
         assert!((parse("45").unwrap() as i64 - (now + 2700) as i64).abs() <= 1);
         assert!(parse("0m").is_err());
         assert!(parse("soon").is_err());
+        // Must be an error, never a panic.
+        assert!(parse("3000000000000h").is_err());
+        assert!(parse("99999999999999999999d").is_err());
     }
 
     #[test]
