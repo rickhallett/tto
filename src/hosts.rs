@@ -29,7 +29,13 @@ pub fn render(current: &str, domains: &[String]) -> String {
         }
     }
     if let Some(buf) = held {
+        // Write the held lines back, but defuse the stray marker itself:
+        // if it stayed verbatim, the END we append below would pair with
+        // it and the next rewrite would swallow everything in between.
         for l in buf {
+            if l == BEGIN {
+                out.push_str("# (tto: stray begin marker, kept for reference) ");
+            }
             out.push_str(l);
             out.push('\n');
         }
@@ -109,6 +115,20 @@ mod tests {
             out.contains("0.0.0.0 x.com"),
             "we cannot tell what was ours; keep it"
         );
+        assert!(
+            !out.lines().any(|l| l == BEGIN),
+            "stray marker must be defused"
+        );
+        // And blocking on top of it, then releasing, still loses nothing.
+        let blocked = render(&base, &["claude.ai".into()]);
+        assert_eq!(
+            blocked.lines().filter(|l| *l == BEGIN).count(),
+            1,
+            "{blocked}"
+        );
+        let released = render(&blocked, &[]);
+        assert!(released.contains("10.0.0.1 nas.local"), "{released}");
+        assert!(!released.contains("claude.ai"));
     }
 
     #[test]

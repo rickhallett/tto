@@ -14,16 +14,29 @@ pub struct Proc {
     pub path: String,
     /// argv[0..2], for CLIs that run under an interpreter (`node …/claude`).
     pub argv: Vec<String>,
+    /// Start time at enumeration; re-checked before a kill so a reused pid
+    /// is never signalled.
+    pub started: Option<(u64, u64)>,
 }
 
 pub fn list() -> Vec<Proc> {
     let mut pids = vec![0i32; 4096];
-    // SAFETY: buffer is sized in bytes; the call writes at most that many.
-    let n = unsafe { libc::proc_listallpids(pids.as_mut_ptr().cast(), (pids.len() * 4) as i32) };
-    if n <= 0 {
-        return Vec::new();
+    loop {
+        // SAFETY: buffer is sized in bytes; the call writes at most that many
+        // and returns how many bytes it would need in total.
+        let n =
+            unsafe { libc::proc_listallpids(pids.as_mut_ptr().cast(), (pids.len() * 4) as i32) };
+        if n <= 0 {
+            return Vec::new();
+        }
+        // The kernel reports the count it filled; if the buffer was full,
+        // there may be more. Grow and ask again until it is not full.
+        if (n as usize) < pids.len() {
+            pids.truncate(n as usize);
+            break;
+        }
+        pids.resize(pids.len() * 2, 0);
     }
-    pids.truncate(n as usize);
     pids.into_iter()
         .filter(|&pid| pid > 1)
         .filter_map(|pid| {
@@ -32,9 +45,32 @@ pub fn list() -> Vec<Proc> {
                 pid,
                 path,
                 argv: argv(pid).unwrap_or_default(),
+                started: start_time(pid),
             })
         })
         .collect()
+}
+
+/// Process start time (seconds, microseconds), used to make sure a pid still
+/// belongs to the process we enumerated before signalling it.
+fn start_time(pid: i32) -> Option<(u64, u64)> {
+    let mut info = std::mem::MaybeUninit::<libc::proc_bsdinfo>::uninit();
+    let size = size_of::<libc::proc_bsdinfo>() as i32;
+    // SAFETY: the buffer is exactly `size` bytes of proc_bsdinfo.
+    let n = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size,
+        )
+    };
+    if n != size {
+        return None;
+    }
+    let info = unsafe { info.assume_init() };
+    Some((info.pbi_start_tvsec, info.pbi_start_tvusec))
 }
 
 fn exe_path(pid: i32) -> Option<String> {
@@ -148,10 +184,25 @@ pub fn kill_matching(cat: &Category) -> Vec<Proc> {
     let me = std::process::id() as i32;
     let mut killed = Vec::new();
     for p in list() {
-        if p.pid != me && matches(&p, cat) {
-            // SAFETY: plain kill(2) on a pid we just enumerated.
-            if unsafe { libc::kill(p.pid, libc::SIGKILL) } == 0 {
-                killed.push(p);
+        if p.pid == me || !matches(&p, cat) {
+            continue;
+        }
+        let Some(started) = p.started else { continue };
+        // A pid can be recycled between any two steps here, and macOS has
+        // no pid-bound handle. So: freeze whatever holds the pid, verify it
+        // is still our process (a stopped process cannot exit, so the pid
+        // cannot change under us), then kill; otherwise thaw and move on.
+        // SAFETY: plain kill(2) with signals that cannot corrupt state.
+        unsafe {
+            if libc::kill(p.pid, libc::SIGSTOP) != 0 {
+                continue;
+            }
+            if start_time(p.pid) == Some(started) {
+                if libc::kill(p.pid, libc::SIGKILL) == 0 {
+                    killed.push(p);
+                }
+            } else {
+                libc::kill(p.pid, libc::SIGCONT);
             }
         }
     }
@@ -176,12 +227,14 @@ mod tests {
             pid: 1,
             path: "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT".into(),
             argv: vec![],
+            started: None,
         };
         assert!(matches(&p, &cat()));
         let helper = Proc {
             pid: 2,
             path: "/Applications/ChatGPT.app/Contents/Frameworks/x.app/Contents/MacOS/x".into(),
             argv: vec![],
+            started: None,
         };
         assert!(
             matches(&helper, &cat()),
@@ -195,18 +248,21 @@ mod tests {
             pid: 3,
             path: "/opt/homebrew/bin/ollama".into(),
             argv: vec!["ollama".into(), "serve".into()],
+            started: None,
         };
         assert!(matches(&native, &cat()));
         let node = Proc {
             pid: 4,
             path: "/usr/local/bin/node".into(),
             argv: vec!["node".into(), "/Users/x/.npm/bin/claude".into()],
+            started: None,
         };
         assert!(matches(&node, &cat()));
         let innocent = Proc {
             pid: 5,
             path: "/usr/local/bin/node".into(),
             argv: vec!["node".into(), "server.js".into()],
+            started: None,
         };
         assert!(!matches(&innocent, &cat()));
         // The promise: nothing outside the list is ever signalled.
@@ -214,6 +270,7 @@ mod tests {
             pid: 7,
             path: "/usr/bin/vim".into(),
             argv: vec!["vim".into(), "claude".into()],
+            started: None,
         };
         assert!(
             !matches(&editing, &cat()),
@@ -223,12 +280,14 @@ mod tests {
             pid: 8,
             path: "/usr/bin/grep".into(),
             argv: vec!["grep".into(), "ollama".into()],
+            started: None,
         };
         assert!(!matches(&arg, &cat()));
         let lookalike = Proc {
             pid: 6,
             path: "/usr/bin/claudette".into(),
             argv: vec![],
+            started: None,
         };
         assert!(!matches(&lookalike, &cat()), "exact basenames only");
     }

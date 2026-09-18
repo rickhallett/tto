@@ -64,6 +64,14 @@ kill $DAEMON; wait $DAEMON 2>/dev/null || true
 for _ in $(seq 50); do [ -S "$P/var/run/tto.sock" ] && break; sleep 0.1; done
 "$TTO" status | grep -q "Off ("
 
+echo "== a stale fence survives a lost state file only until the daemon restarts"
+kill $DAEMON; wait $DAEMON 2>/dev/null || true
+rm -f "$P/var/db/tto/state.json"
+"$TTO" daemon 2>> "$P/daemon.log" & DAEMON=$!
+sleep 2.5
+cmp -s "$P/etc/hosts" "$P/hosts.orig" || { echo "stale fence not cleared on restart"; exit 1; }
+"$TTO" off 1m --only chat -y >/dev/null; sleep 1.5
+
 echo "== expiry restores hosts exactly"
 python3 - "$P/var/db/tto/state.json" <<'PY'
 import json,sys,time

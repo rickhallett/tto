@@ -115,10 +115,40 @@ pub fn uninstall() -> Result<(), String> {
             crate::when::describe(until)
         ));
     }
+    // Stop the daemon first so no in-flight request can re-fence hosts
+    // behind our back; then restore; and if restoring fails, put the daemon
+    // back rather than leave a block with nothing to lift it.
     let _ = Command::new("/bin/launchctl")
         .args(["bootout", &format!("system/{LABEL}")])
         .output();
-    let _ = crate::hosts::apply(&paths.hosts(), &[]);
+    // bootout's exit code is not a reliable signal (it errors when the
+    // service was not loaded), so verify the outcome directly: the socket
+    // must stop answering before we touch anything.
+    let mut stopped = false;
+    for _ in 0..50 {
+        // Only a vanished socket or a refused connection proves it is gone;
+        // a timeout or an error reply means something is still answering.
+        if matches!(
+            proto::call(&paths.socket(), &Request::Ping),
+            Err(proto::ClientError::NotInstalled)
+        ) {
+            stopped = true;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    if !stopped {
+        return Err(
+            "could not stop the helper; nothing changed. Try again, or see /var/log/tto.log".into(),
+        );
+    }
+    if let Err(e) = crate::hosts::apply(&paths.hosts(), &[]) {
+        let _ = Command::new("/bin/launchctl")
+            .args(["bootstrap", "system"])
+            .arg(paths.plist())
+            .output();
+        return Err(format!("restore hosts: {e}; helper left in place"));
+    }
     for p in [paths.plist(), paths.helper(), paths.socket()] {
         let _ = std::fs::remove_file(p);
     }
